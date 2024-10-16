@@ -63,12 +63,16 @@ async function main() {
     console.log('Conexión a MongoDB exitosa.');
 
     // Obtener la lista de monedas soportadas
-    const currencies = await getSupportedCurrencies();
+    //const currencies = await getSupportedCurrencies();
+
+    // Lista de monedas seleccionadas
+    const selectedCurrencies = ['USD', 'CAD', 'MXN', 'BRL', 'ARS', 'EUR'];
 
     // Iterar sobre cada moneda y obtener las tasas de cambio
-    for (const currency of currencies) {
+    for (const currency of selectedCurrencies) {
       await fetchExchangeRatesForCurrency(currency);
     }
+
   } catch (error) {
     console.error('Error al conectar con MongoDB:', error.message);
   } finally {
