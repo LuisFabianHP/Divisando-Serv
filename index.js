@@ -1,26 +1,26 @@
-// index.js
-
 const axios = require('axios');
 const mongoose = require('mongoose');
 require('dotenv').config();
 const ExchangeRate = require('./models/ExchangeRate');
 
 const API_KEY = process.env.API_KEY;
+const API_URL = process.env.API_URL; // Asegúrate de que sea la URL correcta de exchangeratesapi.io
 const MONGO_URI = process.env.MONGO_URI;
 
 async function getSupportedCurrencies() {
   try {
-    console.log('Obteniendo lista de monedas soportadas desde la API...');
-    
-    const response = await axios.get('https://api.freecurrencyapi.com/v1/currencies', {
+    console.log('Obteniendo lista de monedas soportadas desde Exchange Rates API...');
+
+    // Modificar la URL y los parámetros según la documentación
+    const response = await axios.get(`${API_URL}symbols`, {
       params: {
-        apikey: API_KEY
+        access_key: API_KEY
       }
     });
 
-    const currencies = Object.keys(response.data.data);
+    const currencies = Object.keys(response.data.symbols);
     console.log('Monedas soportadas:', currencies);
-    
+
     return currencies;
   } catch (error) {
     console.error('Error al obtener las monedas soportadas:', error.message);
@@ -30,17 +30,16 @@ async function getSupportedCurrencies() {
 
 async function fetchExchangeRatesForCurrency(baseCurrency) {
   try {
-    console.log(`Obteniendo tasas de cambio para ${baseCurrency} desde la API...`);
+    console.log(`Obteniendo tasas de cambio para ${baseCurrency} desde Exchange Rates API...`);
 
-    const response = await axios.get('https://api.freecurrencyapi.com/v1/latest', {
+    const response = await axios.get(`${API_URL}latest`, {
       params: {
-        apikey: API_KEY,
-        base_currency: baseCurrency
+        access_key: API_KEY,
+        base: baseCurrency
       }
     });
 
-    const { data } = response;
-    const rates = data.data;
+    const rates = response.data.rates;
 
     console.log(`Datos recibidos de la API para ${baseCurrency}:`, rates);
 
@@ -49,7 +48,7 @@ async function fetchExchangeRatesForCurrency(baseCurrency) {
       rates: rates
     });
 
-    //await exchangeRate.save();
+    await exchangeRate.save();
     console.log(`Tasas de cambio para ${baseCurrency} guardadas exitosamente en la base de datos.`);
   } catch (error) {
     console.error(`Error al obtener o guardar las tasas de cambio para ${baseCurrency}:`, error.message);
@@ -59,14 +58,15 @@ async function fetchExchangeRatesForCurrency(baseCurrency) {
 async function main() {
   try {
     console.log('Conectando a la base de datos...');
-    //await mongoose.connect(MONGO_URI);
+    await mongoose.connect(MONGO_URI);
     console.log('Conexión a MongoDB exitosa.');
 
     // Obtener la lista de monedas soportadas
     //const currencies = await getSupportedCurrencies();
 
     // Lista de monedas seleccionadas
-    const selectedCurrencies = ['USD', 'CAD', 'MXN', 'BRL', 'ARS', 'EUR'];
+    //const selectedCurrencies = ['USD', 'CAD', 'MXN', 'BRL', 'ARS', 'EUR'];
+    const selectedCurrencies = ['EUR'];
 
     // Iterar sobre cada moneda y obtener las tasas de cambio
     for (const currency of selectedCurrencies) {
@@ -76,7 +76,7 @@ async function main() {
   } catch (error) {
     console.error('Error al conectar con MongoDB:', error.message);
   } finally {
-    //await mongoose.disconnect();
+    await mongoose.disconnect();
     console.log('Conexión a MongoDB cerrada.');
   }
 }
