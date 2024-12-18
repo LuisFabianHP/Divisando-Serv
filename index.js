@@ -1,30 +1,27 @@
+// Importar dependencias
 const axios = require('axios');
 const mongoose = require('mongoose');
 require('dotenv').config();
 const ExchangeRate = require('./models/ExchangeRate');
 
 const API_KEY = process.env.API_KEY;
-const API_URL = process.env.API_URL; // Asegúrate de que sea la URL correcta de exchangeratesapi.io
+const API_URL = process.env.API_URL;
 const MONGO_URI = process.env.MONGO_URI;
 
-async function getSupportedCurrencies() {
+// Verificar si ya existen registros recientes para una moneda
+async function isCurrencyRecentlyFetched(currency) {
   try {
-    console.log('Obteniendo lista de monedas soportadas desde Exchange Rates API...');
+    const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000); // Hace 6 horas
 
-    // Modificar la URL y los parámetros según la documentación
-    const response = await axios.get(`${API_URL}symbols`, {
-      params: {
-        access_key: API_KEY
-      }
+    const recentRecord = await ExchangeRate.findOne({
+      base_currency: currency,
+      createdAt: { $gte: sixHoursAgo }
     });
 
-    const currencies = Object.keys(response.data.symbols);
-    console.log('Monedas soportadas:', currencies);
-
-    return currencies;
+    return !!recentRecord; // Devuelve true si existe un registro reciente
   } catch (error) {
-    console.error('Error al obtener las monedas soportadas:', error.message);
-    return [];
+    console.error(`Error al verificar registros recientes para ${currency}:`, error.message);
+    return false;
   }
 }
 
@@ -55,24 +52,41 @@ async function fetchExchangeRatesForCurrency(baseCurrency) {
   }
 }
 
+async function testCurrency(currency) {
+  try {
+    const response = await axios.get(`${API_URL}latest`, {
+      params: {
+        access_key: API_KEY,
+        base: currency,
+      },
+    });
+    console.log(`Datos para ${currency}:`, response.data);
+  } catch (error) {
+    console.error(`Error para ${currency}:`, error.response?.data || error.message);
+  }
+}
+
 async function main() {
   try {
     console.log('Conectando a la base de datos...');
     await mongoose.connect(MONGO_URI);
     console.log('Conexión a MongoDB exitosa.');
 
-    // Obtener la lista de monedas soportadas
-    //const currencies = await getSupportedCurrencies();
+    const selectedCurrencies = ['USD', 'CAD', 'MXN', 'BRL', 'ARS', 'EUR'];
 
-    // Lista de monedas seleccionadas
-    //const selectedCurrencies = ['USD', 'CAD', 'MXN', 'BRL', 'ARS', 'EUR'];
-    const selectedCurrencies = ['EUR'];
-
-    // Iterar sobre cada moneda y obtener las tasas de cambio
     for (const currency of selectedCurrencies) {
+
+      await testCurrency(currency);
+      return false;
+      const recentlyFetched = await isCurrencyRecentlyFetched(currency);
+
+      if (recentlyFetched) {
+        console.log(`Se omitió la carga de ${currency} porque ya tiene registros recientes.`);
+        continue;
+      }
+
       await fetchExchangeRatesForCurrency(currency);
     }
-
   } catch (error) {
     console.error('Error al conectar con MongoDB:', error.message);
   } finally {
